@@ -156,10 +156,10 @@ func (am *CasbinMiddleware) RequiresPermissions(permissions []string, opts ...Op
 }
 
 func parsePermissionStrings(str string) (string, string) {
-    if !strings.Contains(str, ":") {
+    if !strings.Contains(str, "#") {
         return "", ""
     }
-    vals := strings.Split(str, ":")
+    vals := strings.Split(str, "#")
     return vals[0], vals[1]
 }
 
