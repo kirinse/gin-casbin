@@ -47,7 +47,7 @@ func NewCasbinMiddleware(modelFile string, policyAdapter interface{}, subFn Subj
     return NewCasbinMiddlewareFromEnforcer(e, subFn)
 }
 
-// Create from given Enforcer.
+// NewCasbinMiddlewareFromEnforcer Create from given Enforcer.
 func NewCasbinMiddlewareFromEnforcer(e *casbin.Enforcer, subFn SubjectFn) (*CasbinMiddleware, error) {
     if subFn == nil {
         return nil, ErrSubFnNil
@@ -105,7 +105,18 @@ func (am *CasbinMiddleware) RequiresPermissions(permissions []string, opts ...Op
             c.AbortWithStatus(401)
             return
         }
-
+        var dom string
+        sp := strings.Split(sub, "@")
+        if len(sp) == 2 {
+            sub = sp[0]
+            dom = sp[1]
+        }
+        enforceParams := []interface{}{
+            sub,
+        }
+        if dom != "" {
+            enforceParams = append(enforceParams, dom)
+        }
         // Enforce Casbin policies.
         if actualOptions.logic == AND {
             // Must pass all tests.
@@ -117,8 +128,8 @@ func (am *CasbinMiddleware) RequiresPermissions(permissions []string, opts ...Op
                     c.AbortWithStatus(500)
                     return
                 }
-
-                if ok, err := am.enforcer.Enforce(sub, obj, act); !ok || err != nil {
+                enforceParams = append(enforceParams, obj, act)
+                if ok, err := am.enforcer.Enforce(enforceParams...); !ok || err != nil {
                     c.AbortWithStatus(401)
                     return
                 }
@@ -133,8 +144,8 @@ func (am *CasbinMiddleware) RequiresPermissions(permissions []string, opts ...Op
                     c.AbortWithStatus(500)
                     continue
                 }
-
-                if ok, err := am.enforcer.Enforce(sub, obj, act); ok && err == nil {
+                enforceParams = append(enforceParams, obj, act)
+                if ok, err := am.enforcer.Enforce(enforceParams...); ok && err == nil {
                     c.Next()
                     return
                 }
@@ -152,7 +163,7 @@ func parsePermissionStrings(str string) (string, string) {
     return vals[0], vals[1]
 }
 
-// RequiresPermissions tries to find the current subject by calling SubjectFn
+// RequiresRoles tries to find the current subject by calling SubjectFn
 // and determine if the subject has the required roles according to predefined Casbin policies.
 // opts is some optional configurations such as the logical operator (default is AND) in case multiple roles are specified.
 func (am *CasbinMiddleware) RequiresRoles(requiredRoles []string, opts ...Option) gin.HandlerFunc {
